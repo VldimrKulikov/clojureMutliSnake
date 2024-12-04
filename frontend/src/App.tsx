@@ -1,35 +1,83 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
 import './App.css'
+import {Map} from "./components/Map.tsx";
+import {useCallback, useEffect, useState} from "react";
+import {SnakeType} from "./types/snake.type.ts";
+import {WebSocketDataType} from "./types/webSocketData.type.ts";
+import {CoordType} from "./types/coord.type.ts";
 
 function App() {
-  const [count, setCount] = useState(0)
+    const [snakes, setSnakes] = useState<SnakeType[]>([]);
+    const [apple, setApple] = useState<CoordType | undefined>(undefined);
 
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    const handleWebSocketMessage = useCallback((event: MessageEvent) => {
+        try {
+            const data: WebSocketDataType = JSON.parse(event.data);
+
+            switch (data.event) {
+                case "gameState": {
+                    setApple(data.gameState.food)
+                    const players = Object.entries(data.gameState.players);
+                    const updatedSnakes = players
+                        .filter(([, player]) => player.alive)
+                        .map(([, player]) => ({
+                            coords: player.snake || [],
+                            color: player.color,
+                        }));
+
+                    setSnakes(updatedSnakes);
+                    break
+                }
+                default: {
+                    console.log('Real-time update:', data);
+                }
+            }
+        } catch (error) {
+            console.error('Error parsing WebSocket message:', error);
+        }
+    }, []);
+
+    const handleKeydown = useCallback((socket: WebSocket) => {
+        return (event: KeyboardEvent) => {
+            switch (event.key) {
+                case 'ArrowUp':
+                    return socket.send('up');
+                case 'ArrowDown':
+                    return socket.send('down');
+                case 'ArrowLeft':
+                    return socket.send('left');
+                case 'ArrowRight':
+                    return socket.send('right');
+            }
+        }
+    }, [])
+
+    useEffect(() => {
+        const socket = new WebSocket('ws://192.168.1.64:3000');
+        socket.onopen = () => {
+            window.addEventListener("keydown", handleKeydown(socket));
+        };
+
+        socket.onmessage = handleWebSocketMessage;
+
+        socket.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+
+        socket.onclose = () => {
+            window.removeEventListener("keydown", handleKeydown(socket));
+            console.log('WebSocket connection closed');
+        };
+
+        return () => {
+            socket.close();
+        };
+    }, [handleWebSocketMessage, handleKeydown]);
+
+    return (
+        <>
+            <Map snakes={snakes} apple={apple}/>
+        </>
+    )
 }
 
 export default App
