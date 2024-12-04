@@ -3,10 +3,11 @@
             [ring.middleware.defaults :refer [wrap-defaults site-defaults]]
             [clojure.set :as set]
             [clojure.core.async :as async]
-            [clojure.data.json :as json]))
+            [clojure.data.json :as json]
+            [clojure.core.async.impl.channels :as chan]))
 
 ;; Структуры данных
-(def board-size 10) ; Размер поля 10x10
+(def board-size 40) ; Размер поля
 
 ;; Направления для змейки
 (def directions {:up [-1 0], :down [1 0], :left [0 -1], :right [0 1]})
@@ -37,10 +38,13 @@
 
 ;; Обновление позиции змейки
 (defn update-snake [snake direction]
+  (println (str "snake: " snake direction))
   (let [head (first snake)
         [dx dy] (directions direction)
         new-head [(+ (first head) dx) (+ (second head) dy)]
-        new-snake (conj (vec (drop-last snake)) new-head)]
+        new-snake (cons new-head (butlast snake))]
+    (println (str "snake: " head "-> " new-head))
+    (println (str "snake: " new-snake))
     new-snake))
 
 ;; Проверка на столкновение с границей
@@ -84,6 +88,16 @@
       (when channel
         (http-kit/send! channel (json/write-str {:type :update :game-state @game-state}))))))
 
+;; Таймер для автоматического обновления состояния игры
+(defn start-game-timer []
+  (async/go-loop []
+    (async/<! (async/timeout 1000))  ;; каждая секунда
+    ;; Двигаем всех игроков
+    (doseq [player-id (keys (:players @game-state))]
+      (move-player player-id))
+    (send-game-update)  ;; отправка обновленного состояния
+    (recur)))  ;; продолжаем цикл
+
 ;; Обработчик WebSocket
 (defn websocket-handler [req]
   (http-kit/with-channel req channel
@@ -102,12 +116,12 @@
                            (fn [msg]
                              (println "Received message:" msg)
                              (let [direction (keyword msg)] ; Получаем направление
+                               (println "Changing direction to:" direction)
                                (swap! game-state update :players
                                       #(update % player-id
-                                               (fn [player] (assoc player :direction direction))))
-                               ;; Обновляем состояние игры
-                               (move-player player-id)
-                               (send-game-update)))) ; Отправка обновлений всем игрокам
+                                               (fn [player] (assoc player :direction direction)))))
+                                   ;; Не нужно снова двигать змейку вручную - она будет двигаться сама
+));
 
       ;; Обработчик закрытия соединения
       (http-kit/on-close channel
@@ -118,6 +132,7 @@
 
 (defn -main []
   (init-game)  ;; Инициализация игры
+  (start-game-timer) ;; Запуск таймера
   (let [port 3000]
     (println (str "Server running on ws://localhost:" port))
     (http-kit/run-server websocket-handler {:port port})))
