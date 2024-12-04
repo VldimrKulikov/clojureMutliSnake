@@ -27,25 +27,27 @@ export const Map = ({snakes, apple}: IMap) => {
     })
 
     return (
-        <div style={{
-            display: 'grid',
-            gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
-            gridTemplateRows: `repeat(${GRID_SIZE}, 1fr)`,
-            width: '600px',
-            height: '600px'
-        }}>
-            {cells.flat().map((cell, index) => (
-                <div
-                    className={cn(
-                        "w-full h-full border border-zinc-300",
-                        cell.isApple && "scale-105"
-                    )}
-                    key={index}
-                    style={{
-                        backgroundColor: cell.isApple ? 'red' : cell.color,
-                    }}
-                />
-            ))}
+        <div className={"w-full h-screen flex items-center justify-center"}>
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
+                gridTemplateRows: `repeat(${GRID_SIZE}, 1fr)`,
+                width: '600px',
+                height: '600px'
+            }}>
+                {cells.flat().map((cell, index) => (
+                    <div
+                        className={cn(
+                            "w-full h-full border border-zinc-300",
+                            cell.isApple && "scale-105"
+                        )}
+                        key={index}
+                        style={{
+                            backgroundColor: cell.isApple ? 'red' : cell.color,
+                        }}
+                    />
+                ))}
+            </div>
         </div>
     );
 }

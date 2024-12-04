@@ -1,13 +1,15 @@
-import './App.css'
 import {Map} from "./components/Map.tsx";
 import {useCallback, useEffect, useState} from "react";
 import {SnakeType} from "./types/snake.type.ts";
 import {WebSocketDataType} from "./types/webSocketData.type.ts";
 import {CoordType} from "./types/coord.type.ts";
+import {DiedModal} from "./components/DiedModal.tsx";
 
 function App() {
     const [snakes, setSnakes] = useState<SnakeType[]>([]);
     const [apple, setApple] = useState<CoordType | undefined>(undefined);
+    const [openModal, setOpenModal] = useState(false);
+    const [webSocket, setWebSocket] = useState<WebSocket | null>(null);
 
     const handleWebSocketMessage = useCallback((event: MessageEvent) => {
         try {
@@ -25,6 +27,11 @@ function App() {
                         }));
 
                     setSnakes(updatedSnakes);
+                    break
+                }
+                case "died": {
+                    webSocket?.close();
+                    setOpenModal(true);
                     break
                 }
                 default: {
@@ -51,8 +58,9 @@ function App() {
         }
     }, [])
 
-    useEffect(() => {
+    const openWebSocket = useCallback(() => {
         const socket = new WebSocket('ws://192.168.1.64:3000');
+        setWebSocket(socket)
         socket.onopen = () => {
             window.addEventListener("keydown", handleKeydown(socket));
         };
@@ -67,15 +75,28 @@ function App() {
             window.removeEventListener("keydown", handleKeydown(socket));
             console.log('WebSocket connection closed');
         };
+        return socket;
+    }, [handleKeydown, handleWebSocketMessage])
+
+    useEffect(() => {
+        const socket = openWebSocket();
 
         return () => {
             socket.close();
         };
-    }, [handleWebSocketMessage, handleKeydown]);
+    }, [openWebSocket]);
 
     return (
         <>
             <Map snakes={snakes} apple={apple}/>
+            <DiedModal
+                open={openModal}
+                onSubmit={() => {
+                    setOpenModal(false)
+                    openWebSocket()
+                }}
+                onClose={() => setOpenModal(false)}
+            />
         </>
     )
 }
