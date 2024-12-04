@@ -82,7 +82,7 @@
   (doseq [player-id (keys (:players @game-state))]
     (let [channel (get @player-channels player-id)]
       (when channel
-        (http-kit/send! channel {:type :update :game-state @game-state})))))
+        (http-kit/send! channel (json/write-str {:type :update :game-state @game-state}))))))
 
 ;; Обработчик WebSocket
 (defn websocket-handler [req]
@@ -95,7 +95,7 @@
       (println "Player connected:" player-id)
 
       ;; Отправляем стартовое состояние игры
-      (http-kit/send! channel {:type :start :game-state @game-state})
+      (http-kit/send! channel (json/write-str {:type :update :game-state @game-state}))
 
       ;; Обработчик сообщений от клиента
       (http-kit/on-receive channel
