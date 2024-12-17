@@ -8,3 +8,11 @@ services:
       - "3000:3000"
     environment:
       - LEIN_ROOT=1
+
+  frontend:
+    container_name: frontend
+    build: ./frontend
+    ports:
+      - "80:80"
+      - "443:80"
+
