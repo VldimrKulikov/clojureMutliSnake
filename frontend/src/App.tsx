@@ -3,6 +3,7 @@ import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {GameState, WebSocketDataType} from "./types/webSocketData.type.ts";
 import {DiedModal} from "./components/DiedModal.tsx";
 import {Score} from "./components/Score.tsx";
+import debounce from "debounce";
 
 function App() {
     const [gameState, setGameState] = useState<GameState>();
@@ -44,7 +45,7 @@ function App() {
     }, []);
 
     const handleKeydown = useCallback((socket: WebSocket) => {
-        return (event: KeyboardEvent) => {
+        const handler = (event: KeyboardEvent) => {
             switch (event.key) {
                 case 'ArrowUp':
                     return socket.send('up');
@@ -56,6 +57,7 @@ function App() {
                     return socket.send('right');
             }
         }
+        return debounce(handler, 40)
     }, [])
 
     const openWebSocket = useCallback(() => {
