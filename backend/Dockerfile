@@ -1,25 +1,24 @@
-# Используем базовый образ с Java
-FROM openjdk:11-jdk-slim
+# Этап 1: Сборка
+FROM clojure:openjdk-11-lein AS build
 
-# Устанавливаем Leiningen
-RUN apt-get update && apt-get install -y curl && \
-    curl -o /usr/local/bin/lein https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein && \
-    chmod +x /usr/local/bin/lein
+WORKDIR /app
+COPY project.clj .
+RUN lein deps
+
+COPY . .
+RUN mv "$(lein uberjar | sed -n 's/^Created \(.*standalone\.jar\)/\1/p')" app-standalone.jar
+
+# Этап 2: Создание минимального продакшн-контейнера
+FROM openjdk:11-jre-slim
 
 # Устанавливаем рабочую директорию
 WORKDIR /app
 
-# Копируем проект в контейнер
-COPY . /app
+# Копируем собранное приложение из предыдущего этапа
+COPY --from=build /app/app-standalone.jar /app
 
-# Загружаем зависимости проекта
-RUN lein deps
-
-# Опционально: Собираем проект, если необходимо
-RUN lein compile
-
-# Открываем порт, если сервер запускается на 3000
+# Указываем порт
 EXPOSE 3000
 
-# Запускаем сервер или указываем, как запускать приложение
-CMD ["lein", "run"]
+# Определяем команду запуска
+CMD ["java", "-jar", "app-standalone.jar"]
