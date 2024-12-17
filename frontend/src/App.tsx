@@ -61,7 +61,7 @@ function App() {
     }, [])
 
     const openWebSocket = useCallback(() => {
-        const socket = new WebSocket('ws://192.168.1.64:3000');
+        const socket = new WebSocket('/backend/ws');
         socket.onopen = () => {
             window.addEventListener("keydown", handleKeydown(socket));
         };
