@@ -4,7 +4,8 @@
             [clojure.set :as set]
             [clojure.core.async :as async]
             [clojure.data.json :as json]
-            [clojure.core.async.impl.channels :as chan]))
+            [clojure.core.async.impl.channels :as chan])
+  (:gen-class))
 
 ;; Структуры данных
 (def board-size 40) ; Размер поля
