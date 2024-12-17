@@ -65,31 +65,34 @@
 ;; Логика для обработки движения игрока
 (defn move-player [player-id]
   (dosync
-   (alter game-state
-          (fn [state]
-            (let [player (get-in state [:players player-id])
-                  snake (get player :snake)
-                  direction (get player :direction)]
-              (if (not (:alive player))
-                state
-                (let [new-snake (update-snake snake direction)
-                      is-collision (or (is-out-of-bounds? new-snake) (is-collision? new-snake))]
-                  (if is-collision
-                    (let [channel (get @player-channels player-id)]
-                      (when channel
-                        (http-kit/send! channel (json/write-str {:event :died}))
-                        (http-kit/close channel))
-                        state)
-                    (let [new-score (if (= (first new-snake) (:food state))
-                                      (+ 10 (:score player)) ;; Увеличиваем очки на 10
-                                      (:score player))
-                          new-food (if (= (first new-snake) (:food state))
-                                     nil
-                                     (:food state))]
-                      (assoc state
-                             :food new-food
-                             :players (update-in (:players state) [player-id]
-                                                 #(merge % {:snake new-snake :score new-score}))))))))))))
+   (let [player (get-in @game-state [:players player-id])]
+     (when (and player (:alive player)) ; Проверяем, существует ли игрок и жив ли он
+       (alter game-state
+              (fn [state]
+                (let [snake (get player :snake)
+                      direction (get player :direction)]
+                  (if (not (:alive player))
+                    state
+                    (let [new-snake (update-snake snake direction)
+                          is-collision (or (is-out-of-bounds? new-snake) (is-collision? new-snake))]
+                      (if is-collision
+                        (let [channel (get @player-channels player-id)]
+                          (when channel
+                            (http-kit/send! channel (json/write-str {:event :died}))
+                            (http-kit/close channel))
+                          (assoc state
+                                 :players (update-in (:players state) [player-id]
+                                                     #(merge % {:alive false}))))
+                        (let [new-score (if (= (first new-snake) (:food state))
+                                          (+ 10 (:score player)) ;; Увеличиваем очки на 10
+                                          (:score player))
+                              new-food (if (= (first new-snake) (:food state))
+                                         nil
+                                         (:food state))]
+                          (assoc state
+                                 :food new-food
+                                 :players (update-in (:players state) [player-id]
+                                                     #(merge % {:snake new-snake :score new-score}))))))))))))))
 
 ;; Генерация начального состояния игры для всех игроков
 (defn init-game []
@@ -98,11 +101,10 @@
    (alter game-state assoc :food (or (:food @game-state) (generate-food)))))
 
 ;; Отправка обновленного состояния всем игрокам
-(defn send-game-update []
-  (doseq [player-id (keys (:players @game-state))]
-    (let [channel (get @player-channels player-id)]
-      (when channel
-        (http-kit/send! channel (json/write-str {:type :update :gameState @game-state :event :gameState}))))))
+(defn send-game-update [player-id]
+  (let [channel (get @player-channels player-id)]
+    (when channel
+      (http-kit/send! channel (json/write-str {:type :update :gameState @game-state :event :gameState})))))
 
 ;; Таймер для автоматического обновления состояния игры
 (defn start-game-timer []
@@ -114,8 +116,9 @@
 
     ;; Двигаем всех игроков
     (doseq [player-id (keys (:players @game-state))]
-      (move-player player-id))
-    (send-game-update)  ;; отправка обновленного состояния
+      (move-player player-id)
+      ;; отправка обновленного состояния
+      (send-game-update player-id))
     (recur)))  ;; продолжаем цикл
 
 ;; Обработчик WebSocket
@@ -138,18 +141,24 @@
       (http-kit/on-receive channel
                            (fn [msg]
                              (println "Received message:" msg)
-                             (let [direction (keyword msg)] ; Получаем направление
-                               (println "Changing direction to:" direction)
-                               (dosync
-                                (alter game-state update-in [:players player-id :direction] (constantly direction))))))
+                             (dosync
+                              (let [player (get-in @game-state [:players player-id])
+                                    direction (keyword msg)  ;; Получаем новое направление
+                                    old-direction (:direction player)
+                                    [dx1 dy1] (directions direction)
+                                    [dx2 dy2] (directions old-direction)]
+                             ;; Проверяем, не противоположное ли новое направление старому
+                                (when (not= [(- dx2) (- dy2)] [dx1 dy1])
+                                  (alter game-state update-in [:players player-id :direction] (constantly direction))
+                                  (println "Changing direction to:" direction))))))
 
       ;; Обработчик закрытия соединения
       (http-kit/on-close channel
                          (fn [status]
-                           (println "Player disconnected:" player-id)
                            (dosync
+                            (swap! player-channels dissoc player-id)
                             (alter game-state update :players dissoc player-id))
-                           (swap! player-channels dissoc player-id))))))
+                           (println "Player disconnected:" player-id))))))
 
 (defn -main []
   (if (nil? (:food @game-state))
