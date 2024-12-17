@@ -11,4 +11,6 @@
   {:dev                                                 ;; Профиль разработки
    {:dependencies [[javax.servlet/servlet-api "2.5"]   ;; пригодится если вы будете устанавливать ring/ring-core
                    [ring/ring-devel "1.6.2"]]}}        ;; пригодится для горячей перезагрузки
+  :source-paths ["src"]
+  :aot [websocket-echo.core]
   :main ^:skip-aot websocket-echo.core)       

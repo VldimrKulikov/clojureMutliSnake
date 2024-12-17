@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  clojure-app:
+    container_name: backend-clojure
+    build: ./backend
+    ports:
+      - "3000:3000"
+    environment:
+      - LEIN_ROOT=1
+
+  frontend:
+    container_name: frontend
+    build: ./frontend
+    depends_on:
+      - clojure-app
+    ports:
+      - "80:80"
+      - "443:80"
+

@@ -1,36 +1,37 @@
 import {Map} from "./components/Map.tsx";
-import {useCallback, useEffect, useState} from "react";
-import {SnakeType} from "./types/snake.type.ts";
-import {WebSocketDataType} from "./types/webSocketData.type.ts";
-import {CoordType} from "./types/coord.type.ts";
+import {useCallback, useEffect, useMemo, useRef, useState} from "react";
+import {GameState, WebSocketDataType} from "./types/webSocketData.type.ts";
 import {DiedModal} from "./components/DiedModal.tsx";
+import {Score} from "./components/Score.tsx";
+import debounce from "debounce";
 
 function App() {
-    const [snakes, setSnakes] = useState<SnakeType[]>([]);
-    const [apple, setApple] = useState<CoordType | undefined>(undefined);
+    const [gameState, setGameState] = useState<GameState>();
     const [openModal, setOpenModal] = useState(false);
-    const [webSocket, setWebSocket] = useState<WebSocket | null>(null);
+    const webSocket = useRef<WebSocket>();
+    const [playerId, setPlayerId] = useState<string | null>(null);
+    
+    const score = useMemo(() => {
+        if (!playerId) return 0;
+        return gameState?.players[playerId]?.score || 0
+    }, [gameState, playerId]);
+
 
     const handleWebSocketMessage = useCallback((event: MessageEvent) => {
         try {
             const data: WebSocketDataType = JSON.parse(event.data);
 
             switch (data.event) {
+                case "connect": {
+                    setPlayerId(data.playerId)
+                    break
+                }
                 case "gameState": {
-                    setApple(data.gameState.food)
-                    const players = Object.entries(data.gameState.players);
-                    const updatedSnakes = players
-                        .filter(([, player]) => player.alive)
-                        .map(([, player]) => ({
-                            coords: player.snake || [],
-                            color: player.color,
-                        }));
-
-                    setSnakes(updatedSnakes);
+                    setGameState(data.gameState);
                     break
                 }
                 case "died": {
-                    webSocket?.close();
+                    webSocket?.current?.close();
                     setOpenModal(true);
                     break
                 }
@@ -44,7 +45,7 @@ function App() {
     }, []);
 
     const handleKeydown = useCallback((socket: WebSocket) => {
-        return (event: KeyboardEvent) => {
+        const handler = (event: KeyboardEvent) => {
             switch (event.key) {
                 case 'ArrowUp':
                     return socket.send('up');
@@ -56,11 +57,11 @@ function App() {
                     return socket.send('right');
             }
         }
+        return debounce(handler, 40)
     }, [])
 
     const openWebSocket = useCallback(() => {
-        const socket = new WebSocket('ws://192.168.1.64:3000');
-        setWebSocket(socket)
+        const socket = new WebSocket('/backend/ws');
         socket.onopen = () => {
             window.addEventListener("keydown", handleKeydown(socket));
         };
@@ -75,20 +76,19 @@ function App() {
             window.removeEventListener("keydown", handleKeydown(socket));
             console.log('WebSocket connection closed');
         };
-        return socket;
+        webSocket.current = socket
+        return socket
     }, [handleKeydown, handleWebSocketMessage])
 
     useEffect(() => {
-        const socket = openWebSocket();
-
-        return () => {
-            socket.close();
-        };
+        const websocket = openWebSocket();
+        return () => websocket.close();
     }, [openWebSocket]);
 
     return (
-        <>
-            <Map snakes={snakes} apple={apple}/>
+        <div className={'h-screen w-full flex flex-col items-center justify-center gap-6'}>
+            <Score score={score}/>
+            <Map gameState={gameState}/>
             <DiedModal
                 open={openModal}
                 onSubmit={() => {
@@ -97,7 +97,7 @@ function App() {
                 }}
                 onClose={() => setOpenModal(false)}
             />
-        </>
+        </div>
     )
 }
 

@@ -5,20 +5,28 @@ interface PlayerState {
     direction: string;
     alive: boolean;
     color: string;
+    score: number;
 }
 
-interface GameState {
-    gameState: {
-        players: {[key: string]: PlayerState};
-        food: CoordType
-    };
-    status: string;
+export interface GameState {
+    players: {[key: string]: PlayerState};
+    food: CoordType
+}
+
+interface GameStateMessage {
     event: 'gameState';
+    gameState: GameState;
+    status: string;
 }
 
 interface DieMessage {
     event: 'died';
 }
 
+interface ConnectMessage {
+    event: 'connect';
+    playerId: string;
+}
 
-export type WebSocketDataType = DieMessage | GameState;
+
+export type WebSocketDataType = DieMessage | GameStateMessage | ConnectMessage;
