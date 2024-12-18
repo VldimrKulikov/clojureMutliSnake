@@ -1,28 +1,19 @@
 :- use_module(library(socket)).
 
-% Основной predicate для запуска соединения
+% Главный предикат для запуска
 start_websocket_client :-
+    getenv('WEBSOCKET_SERVER_HOST', Host),
+    getenv('WEBSOCKET_SERVER_PORT', Port),
     setup_connection(Host, Port),
-    write('Connected to WebSocket Server'), nl,
-    communicate(Port).
+    socket_client(Host, Port).
 
-% Настройка соединения
-setup_connection('localhost', 8080). % Адрес сервера и порт
+setup_connection(Host, Port) :-
+    format('Trying to connect to ~w:~w~n', [Host, Port]),
+    tcp_connect(Stream, Host:Port),
+    format('Connected successfully to ~w:~w~n', [Host, Port]).
 
-% Пример общения с сервером
-communicate(Port) :-
-    socket_connect(Port, Socket),
-    write('Sending message to server...'), nl,
-    send_message(Socket, 'Hello, WebSocket!'),
-    read_response(Socket).
-
-% Функция для отправки сообщений
-send_message(Socket, Message) :-
-    format('~w~n', [Message]),
-    socket_send(Socket, Message).
-
-% Пример обработки ответа
-read_response(Socket) :-
-    socket_recv(Socket, Data),
-    format('Response from server: ~w~n', [Data]),
-    socket_close(Socket).
+send_message(Stream) :-
+    tcp_write(Stream, "Hello, Server!"),
+    tcp_flush(Stream),
+    format('Message sent to server~n'),
+    tcp_close(Stream).
