@@ -18,3 +18,11 @@ services:
       - "80:80"
       - "443:80"
 
+  prolog-client:
+    container_name: prolog-client
+    build: ./prolog-bot
+    environment:
+      WEBSOCKET_SERVER_HOST: clojure-app
+      WEBSOCKET_SERVER_PORT: 3000
+    depends_on:
+      - clojure-app
