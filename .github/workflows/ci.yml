@@ -22,7 +22,7 @@ jobs:
       CI_REGISTRY: ${{ vars.CI_REGISTRY }}
       CI_PROJECT_PATH: ${{ github.repository }}
       CI_COMMIT_SHORT_SHA: latest
-      CI_PROJECT_DIR: .
+      CI_PROJECT_DIR: ./backend
 
     steps:
       - name: Checkout repository
