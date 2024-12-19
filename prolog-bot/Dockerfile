@@ -5,8 +5,5 @@ FROM swipl:latest
 WORKDIR /usr/src/app
 COPY ./websocket_bot.pl .
 
-# # Опционально: устанавливаем зависимости, если нужно
-# RUN apt-get update && apt-get install -y netcat
-
 # Команда для запуска клиента
 CMD ["swipl", "-g", "start_websocket_client", "websocket_bot.pl"]
