@@ -75,10 +75,13 @@ choose_move(Direction, Snake, Food) :-
 snake_head(Snake, Head) :-
     Snake = [Head|_].
 
-setup_connection(Host, Port) :-
-    format('Trying to connect to ~w:~w~n', [Host, Port]),
-    tcp_connect(Stream, Host:Port),
-    format('Connected successfully to ~w:~w~n', [Host, Port]).
+% Логика движения в сторону еды
+move_towards_food([Y, X], [FoodY, FoodX], Direction) :-
+    (   FoodX > X -> Direction = right
+    ;   FoodX < X -> Direction = left
+    ;   FoodY > Y -> Direction = down
+    ;   Direction = up
+    ).
 
 % Отправка команды на сервер
 send_command(Stream, Direction) :-
